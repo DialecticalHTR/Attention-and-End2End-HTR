@@ -1,3 +1,15 @@
+# it solves the problem for import modules
+import sys
+import pathlib
+
+
+current_path = pathlib.Path(__file__).parent.resolve()
+working_dir_path = pathlib.Path().resolve()
+repo_name = current_path.relative_to(working_dir_path).parts[0]
+repo_path = working_dir_path / repo_name
+
+sys.path.append(repo_path)
+
 import argparse
 import gc
 import time

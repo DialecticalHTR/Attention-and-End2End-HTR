@@ -1,12 +1,24 @@
+# it solves the problem for import modules
+import sys
+import pathlib
+
+
+current_path = pathlib.Path(__file__).parent.resolve()
+working_dir_path = pathlib.Path().resolve()
+repo_name = current_path.relative_to(working_dir_path).parts[0]
+repo_path = working_dir_path / repo_name
+
+sys.path.append(repo_path)
+
 import argparse
 import logging
 import os
 from typing import List
 
-from process_datasets.abstract_dataset_processor import AbstractDatasetProcessor
-from process_datasets.cyrillic_processor import CyrillicDatasetProcessor
-from process_datasets.hkr_processor import HKRDatasetProcessor
-from process_datasets.synthetic_processor import SyntheticDatasetProcessor
+from abstract_dataset_processor import AbstractDatasetProcessor
+from cyrillic_processor import CyrillicDatasetProcessor
+from hkr_processor import HKRDatasetProcessor
+from synthetic_processor import SyntheticDatasetProcessor
 from utils.logger import get_logger
 
 

@@ -1,3 +1,15 @@
+# it solves the problem for import modules
+import sys
+import pathlib
+
+
+current_path = pathlib.Path(__file__).parent.resolve()
+working_dir_path = pathlib.Path().resolve()
+repo_name = current_path.relative_to(working_dir_path).parts[0]
+repo_path = working_dir_path / repo_name
+
+sys.path.append(repo_path)
+
 """ modified version of deep-text-recognition-benchmark repository https://github.com/clovaai/deep-text-recognition-benchmark/blob/master/train.py """
 import argparse
 import logging
@@ -69,6 +81,7 @@ def load_model(opt: Any, logger: logging.Logger) -> torch.nn.DataParallel:
             if 'weight' in name:
                 param.data.fill_(1)
 
+    # data parallel for multi-GPU
     model = torch.nn.DataParallel(model)
     if opt.saved_model != '':
         logger.info(f'Loading pretrained attention_model from {opt.saved_model}')
