@@ -1,3 +1,14 @@
+# it solves the problem for import modules
+import sys
+import pathlib
+
+
+current_path = pathlib.Path(__file__).parent.resolve()
+working_dir_path = pathlib.Path().resolve()
+
+sys.path.append(str(working_dir_path))
+
+
 import argparse
 import os
 import sys
