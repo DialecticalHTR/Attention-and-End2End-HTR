@@ -2,8 +2,6 @@
 import sys
 import pathlib
 
-from src.dataset import trocr_dataset
-
 
 current_path = pathlib.Path(__file__).parent.resolve()
 working_dir_path = pathlib.Path().resolve()
@@ -52,14 +50,14 @@ def prepare_data(
 
     processor = TrOCRProcessor.from_pretrained("microsoft/trocr-small-handwritten")
     train_dataset = TrocrDataset(
-        train_df_list, opt.data_dir, opt, processor=processor, transforms=transforms
+        train_df_list, opt.data_dir, processor=processor, transforms=transforms
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=opt.batch_size, shuffle=True, pin_memory=True
     )
 
     val_dataset = TrocrDataset(
-        val_df_list, opt.data_dir, opt, processor=processor, transforms=transforms
+        val_df_list, opt.data_dir, processor=processor, transforms=transforms
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=opt.batch_size, shuffle=True, pin_memory=True
@@ -73,6 +71,7 @@ def load_model(opt: Any, Logger: logging.Logger) -> torch.nn.DataParallel:
     model = VisionEncoderDecoderModel.from_pretrained(
         "microsoft/trocr-small-handwritten"
     )
+    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-small-handwritten")
 
     # set special tokens used for creating the decoder_input_ids from the labels
     model.config.decoder_start_token_id = processor.tokenizer.cls_token_id

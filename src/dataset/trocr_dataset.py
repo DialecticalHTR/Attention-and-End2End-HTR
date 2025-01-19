@@ -36,10 +36,10 @@ class TrocrDataset(AbstractDataset):
         text = str(self.texts[df_idx][current_idx])
 
         # prepare image (convert to grayscale + resize + normalize)
-        image = Image.open(img_path).convert("L")
+        image = Image.open(img_path).convert("RGB")
 
-        if self.transforms:
-            image = self.transforms(image=image)["image"]
+        # if self.transforms:
+        #     image = self.transforms(image=image)["image"]
 
         pixel_values = self.processor(image, return_tensors="pt").pixel_values
 
