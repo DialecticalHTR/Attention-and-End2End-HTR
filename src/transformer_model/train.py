@@ -140,6 +140,7 @@ def run_train(opt, logger):
     early_stopping = 0
     start_epoch = 0
 
+    # TODO Разобраться почему здесь attention_model
     if opt.saved_model:
         logger.info("Loading attention_model from checkpoint")
         cp = torch.load(opt.saved_model)

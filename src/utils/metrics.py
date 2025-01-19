@@ -43,3 +43,19 @@ def string_accuracy(pred_texts: List[str], gt_texts: List[str]) -> float:
     for pred_text, gt_text in zip(pred_texts, gt_texts):
         correct += int(pred_text == gt_text)
     return correct / len(gt_texts) * 100.
+
+
+# for trocr model
+def compute_metrics(pred, processor):
+    labels_ids = pred.label_ids
+    pred_ids = pred.predictions
+
+    pred_texts  = processor.batch_decode(pred_ids, skip_special_tokens=True)
+    labels_ids[labels_ids == -100] = processor.tokenizer.pad_token_id
+    gt_texts  = processor.batch_decode(labels_ids, skip_special_tokens=True)
+
+    accuracy_value = string_accuracy(pred_texts, gt_texts)
+    cer_value = cer(pred_texts, gt_texts)
+    wer_value = wer(pred_texts, gt_texts)
+    return accuracy_value, cer_value, wer_value
+
