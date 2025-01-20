@@ -34,6 +34,7 @@ from src.utils.logger import get_logger
 from src.utils.metrics import compute_metrics, string_accuracy
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+processor = TrOCRProcessor.from_pretrained("microsoft/trocr-small-handwritten")
 
 
 def prepare_data(
@@ -48,7 +49,6 @@ def prepare_data(
         train_df_list.append(data_df[data_df.stage == "train"])
         val_df_list.append(data_df[data_df.stage == "val"])
 
-    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-small-handwritten")
     train_dataset = TrocrDataset(
         train_df_list, opt.data_dir, processor=processor, transforms=transforms
     )
@@ -63,7 +63,7 @@ def prepare_data(
         val_dataset, batch_size=opt.batch_size, shuffle=True, pin_memory=True
     )
 
-    return train_loader, val_loader, processor
+    return train_loader, val_loader
 
 
 def load_model(opt: Any, Logger: logging.Logger) -> torch.nn.DataParallel:
@@ -71,7 +71,6 @@ def load_model(opt: Any, Logger: logging.Logger) -> torch.nn.DataParallel:
     model = VisionEncoderDecoderModel.from_pretrained(
         "microsoft/trocr-small-handwritten"
     )
-    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-small-handwritten")
 
     # set special tokens used for creating the decoder_input_ids from the labels
     model.config.decoder_start_token_id = processor.tokenizer.cls_token_id
@@ -88,11 +87,14 @@ def load_model(opt: Any, Logger: logging.Logger) -> torch.nn.DataParallel:
     model.config.num_beams = 4
 
     # data parallel for multi-GPU
-    model = torch.nn.DataParallel(model)
-    if opt.saved_model != "":
-        logger.info(f"Loading pretrained trocr_model from {opt.saved_model}")
-        state_dict = torch.load(opt.saved_model, map_location=device)
-        model.load_state_dict(state_dict, strict=not opt.ft)
+    
+    # Предполагаю, что эта строчка сбрасывает настройки config и beam search
+    # model = torch.nn.DataParallel(model)
+
+    # if opt.saved_model != "":
+    #     logger.info(f"Loading pretrained trocr_model from {opt.saved_model}")
+    #     state_dict = torch.load(opt.saved_model, map_location=device)
+    #     model.load_state_dict(state_dict, strict=not opt.ft)
 
     model.train()
     model = model.to(device)
@@ -106,7 +108,7 @@ def get_training_utils(
 
 
 def train(opt: Any, logger: logging.Logger) -> None:
-    train_loader, val_loader, processor = prepare_data(opt)
+    train_loader, val_loader = prepare_data(opt)
     model = load_model(opt, logger)
     optimizer = AdamW(model.parameters(), lr=5e-5)
     loss_averager = Averager()
@@ -127,10 +129,8 @@ def train(opt: Any, logger: logging.Logger) -> None:
         np.inf,
         0,
     )
-    epoch = 0
 
-
-    for epoch in range(opt.epochs):        
+    for epoch in range(opt.epochs):
 
         for batch in tqdm(train_loader):
             for k, v in batch.items():
@@ -142,17 +142,19 @@ def train(opt: Any, logger: logging.Logger) -> None:
             loss.backward()
             optimizer.step()
             loss_averager.add(loss)
-            optimizer.zero_grad()            
-        
+            optimizer.zero_grad()
+
         # validation part
-        elapsed_time = int((time.time() - start_time) / 60.)
+        elapsed_time = int((time.time() - start_time) / 60.0)
         model.eval()
         with torch.no_grad():
             for batch in tqdm(val_loader):
                 # run batch generation
                 outputs = model.generate(batch["pixel_values"].to(device))
-                #compute metrics
-                accuracy_value, cer_value, wer_value = string_accuracy(outputs, batch["labels"]), compute_metrics(outputs, batch["labels"])
+                # compute metrics
+                accuracy_value, cer_value, wer_value = string_accuracy(
+                    outputs, batch["labels"]
+                ), compute_metrics(outputs, batch["labels"])
                 current_cer += cer_value
                 current_wer += wer_value
                 current_accuracy += accuracy_value
@@ -161,35 +163,66 @@ def train(opt: Any, logger: logging.Logger) -> None:
 
         # training loss and validation loss
         train_loss = loss_averager.val()
-        
-        logger.info(f'[Epoch {epoch}/{opt.epochs}] Train loss: {train_loss:0.5f}, elapsed time: {elapsed_time} min')
+
+        logger.info(
+            f"[Epoch {epoch}/{opt.epochs}] Train loss: {train_loss:0.5f}, elapsed time: {elapsed_time} min"
+        )
         loss_averager.reset()
-        logger.info(f'{"Current accuracy":17s}: {current_accuracy:0.3f}, {"current CER":17s}: {current_cer:0.2f}, {"current WER":17s}: {current_wer:0.2f}')
-        best_accuracy = current_accuracy if current_accuracy > best_accuracy else best_accuracy        
+        logger.info(
+            f'{"Current accuracy":17s}: {current_accuracy:0.3f}, {"current CER":17s}: {current_cer:0.2f}, {"current WER":17s}: {current_wer:0.2f}'
+        )
+        best_accuracy = (
+            current_accuracy if current_accuracy > best_accuracy else best_accuracy
+        )
         # keep the best cer attention_model (on valid dataset)
         if current_cer < best_cer:
             best_cer = current_cer
             logger.info("Save attention_model with best CER")
-            torch.save(model.state_dict(), os.path.join(opt.out_dir, 'best_cer.pth'))
-        logger.info(f'{"Best accuracy":17s}: {best_accuracy:0.3f}, {"Best CER":17s}: {best_cer:0.2f}')
+            torch.save(model.state_dict(), os.path.join(opt.out_dir, "best_cer.pth"))
+        logger.info(
+            f'{"Best accuracy":17s}: {best_accuracy:0.3f}, {"Best CER":17s}: {best_cer:0.2f}'
+        )
 
         # TODO write the code for showing predicted results
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--log_dir', type=str, help='Directory for saving log file', required=True)
-    parser.add_argument('--log_name', type=str, help='Name of the log file', required=True)
-    parser.add_argument('--out_dir', help='Where to store models', required=True)
-    parser.add_argument('--data_dir', type=str, help='Path to the dataset', required=True)
-    parser.add_argument('-n', '--label_files', nargs='+', required=True, help='Names of files with labels')
-    parser.add_argument('--manual_seed', type=int, default=1111, help='For random seed setting')
-    parser.add_argument('--batch_size', type=int, default=8, help='Input batch size')
-    parser.add_argument('--epochs', type=int, default=5, help='Number of training epochs')
-    parser.add_argument('--saved_model', type=str, default='', help="Path to attention_model to continue training")
-    parser.add_argument('--ft', action='store_true', help='Whether to do fine-tuning')
-    parser.add_argument('--patience', type=int, default=3, help='Patience for the early stopping')
-    parser.add_argument('--write_errors', action='store_true', help='Write attention_model\'s errors to the log file')
+    parser.add_argument(
+        "--log_dir", type=str, help="Directory for saving log file", required=True
+    )
+    parser.add_argument(
+        "--log_name", type=str, help="Name of the log file", required=True
+    )
+    parser.add_argument("--out_dir", help="Where to store models", required=True)
+    parser.add_argument(
+        "--data_dir", type=str, help="Path to the dataset", required=True
+    )
+    parser.add_argument(
+        "-n",
+        "--label_files",
+        nargs="+",
+        required=True,
+        help="Names of files with labels",
+    )
+    parser.add_argument(
+        "--manual_seed", type=int, default=1111, help="For random seed setting"
+    )
+    parser.add_argument("--batch_size", type=int, default=8, help="Input batch size")
+    parser.add_argument(
+        "--epochs", type=int, default=5, help="Number of training epochs"
+    )
+    parser.add_argument(
+        "--saved_model",
+        type=str,
+        default="",
+        help="Path to attention_model to continue training",
+    )
+    parser.add_argument("--ft", action="store_true", help="Whether to do fine-tuning")
+
+    # doesn't added
+    # parser.add_argument('--patience', type=int, default=3, help='Patience for the early stopping')
+    # parser.add_argument('--write_errors', action='store_true', help='Write attention_model\'s errors to the log file')
 
     # Data processing
     # parser.add_argument('--batch_max_length', type=int, default=40, help='Maximum label length')
@@ -215,5 +248,5 @@ if __name__ == '__main__':
 
     start_time = time.time()
     train(opt, logger)
-    elapsed_time = (time.time() - start_time) / 60.
+    elapsed_time = (time.time() - start_time) / 60.0
     logger.info(f"Overall elapsed time: {elapsed_time:.3f} min")
