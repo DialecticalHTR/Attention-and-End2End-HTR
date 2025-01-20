@@ -207,7 +207,7 @@ def run_eval(opt, logger):
     logger.info("Loading transformer model from checkpoint")
 
     cp = torch.load(opt.saved_model)
-    model.load_state_dict(cp["attention_model"])
+    model.load_state_dict(cp["transformer_model"])
     del cp
 
     val_dataset = TransformerDataset([val_df], opt.data_dir, tokenizers)
