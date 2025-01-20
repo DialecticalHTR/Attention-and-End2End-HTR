@@ -12,31 +12,22 @@ sys.path.append(str(working_dir_path))
 import argparse
 import logging
 import os
-from typing import Any, Tuple, List
+from typing import Any
 
-import pandas as pd
 import torch
-import torch.nn.functional as F
 import torch.utils.data
-from torch.nn.modules.loss import _Loss
 from torchvision import transforms
 from PIL import Image
-from pathlib import Path
 
-from src.attention_model.averager import Averager
-from src.attention_model.label_converting import Converter, AttnLabelConverter
+from src.attention_model.label_converting import AttnLabelConverter
 from src.attention_model.model import Model
 from src.attention_model.resize_normalization import AlignCollate
-from src.dataset.attention_dataset import AttentionDataset
-from src.dataset.utils import get_charset
 from src.utils.logger import get_logger
-from src.utils.metrics import string_accuracy, cer, wer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def process_image(image_path: str, opt: Any) -> torch.Tensor:
-    """Обработка изображения для подачи в модель."""
+def process_image(image_path: str, opt: Any) -> torch.Tensor:    
     transform = transforms.Compose(
         [
             transforms.Resize((opt.img_h, opt.img_w)),
@@ -61,7 +52,7 @@ def test(opt: Any, logger: logging.Logger) -> None:
     model.load_state_dict(torch.load(opt.saved_model, map_location=device))
     model.eval()
 
-    P = Path(opt.images_path)
+    P = pathlib.Path(opt.images_path)
     for x in P.rglob("*"):
         if ".jpg" in str(x):
             image_tensors = process_image(x, opt)
