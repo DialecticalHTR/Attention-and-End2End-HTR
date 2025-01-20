@@ -16,6 +16,7 @@ import pandas as pd
 import torch.nn.functional as F
 from tabulate import tabulate
 from torch.cuda import amp
+from tqdm.notebook import tqdm
 
 from src.dataset.transformer_dataset import TransformerDataset
 from src.dataset.transforms import transforms
@@ -34,7 +35,7 @@ def val_loop(data_loader, model, tokenizers, logger):
     logger.info("Validation")
     final_predictions = {k: {'true': [], 'pred': []} for k in tokenizers.keys()}
 
-    for data in data_loader:
+    for data in tqdm(data_loader):
         text_preds = predict(data['image'], data['image_mask'], model, tokenizers)
         for tokenizer_name, pred in text_preds.items():
             final_predictions[tokenizer_name]['true'].extend(data['text'])
@@ -64,9 +65,9 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
     losses = {}
     for name in 'ctc', 'transformer', 'total':
         losses[name] = AverageMeter()
-    model.train()
+    model.train()    
 
-    for data in data_loader:
+    for data in tqdm(data_loader):
         images = data['image'].to(device)
         image_masks = data['image_mask'].to(device)
         enc_text_transformer = data['enc_text_transformer'].to(device)
@@ -127,6 +128,10 @@ def run_train(opt, logger):
     tokenizers = {'ctc': tokenizer_ctc, 'transformer': tokenizer_transformer}
     params = {'max_new_tokens': 30, 'min_length': 1, 'num_beams': 1, 'num_beam_groups': 1, 'do_sample': False}
     model = CRNN(n_ctc=tokenizer_ctc.get_num_chars(), n_transformer_decoder=tokenizer_transformer.get_num_chars(), transformer_decoding_params=params)
+    
+    # data parallel for multi-GPU
+    model = torch.nn.DataParallel(model)
+    
     model.to(device)
 
     scaler = amp.GradScaler()
@@ -140,12 +145,12 @@ def run_train(opt, logger):
     early_stopping = 0
     start_epoch = 0
 
-    if opt.saved_model:
-        logger.info("Loading attention_model from checkpoint")
-        cp = torch.load(opt.saved_model)
+    if opt.saved_model != '':
+        logger.info(f'Loading pretrained attention_model from {opt.saved_model}')
+        cp = torch.load(opt.saved_model, map_location=device)
 
         scaler.load_state_dict(cp["scaler"])
-        model.load_state_dict(cp["attention_model"])
+        model.load_state_dict(cp["transformer_model"])
         optimizer.load_state_dict(cp["optimizer"])
         for _ in range(cp["epoch"]):
             scheduler.step()
