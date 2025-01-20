@@ -75,6 +75,9 @@ if __name__ == '__main__':
 
     model = get_ocr_model({'time_feature_count': 256, 'lstm_hidden': 256, 'lstm_len': 3, 'n_class': len(opt.charset) + 1}, pretrained=True)
 
+    # data parallel for multi-GPU
+    model = torch.nn.DataParallel(model)
+    
     model = model.to(device)
     criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.0002, weight_decay=1e-2)

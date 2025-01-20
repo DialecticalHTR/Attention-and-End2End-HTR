@@ -30,7 +30,6 @@ from src.utils.metrics import cer, wer, string_accuracy, levenshtein_distance
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
 def val_loop(data_loader, model, tokenizers, logger):
     logger.info("Validation")
     final_predictions = {k: {'true': [], 'pred': []} for k in tokenizers.keys()}
@@ -60,14 +59,13 @@ def val_loop(data_loader, model, tokenizers, logger):
         accs.append(accuracy_value)
     return min(cers), min(wers), max(accs)
 
-
-def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimizer):
+def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimizer, epoch, total_epochs):
     losses = {}
     for name in 'ctc', 'transformer', 'total':
         losses[name] = AverageMeter()
-    model.train()    
+    model.train()
 
-    for data in tqdm(data_loader):
+    for batch_idx, data in enumerate(tqdm(data_loader, desc=f"Training Epoch {epoch + 1}/{total_epochs}")):
         images = data['image'].to(device)
         image_masks = data['image_mask'].to(device)
         enc_text_transformer = data['enc_text_transformer'].to(device)
@@ -90,10 +88,9 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
-        optimizer.step()
+        optimizer.step()  
 
     return {k: v.avg for k, v in losses.items()}
-
 
 def predict(images, image_masks, model, tokenizers):
     model.eval()
@@ -104,7 +101,6 @@ def predict(images, image_masks, model, tokenizers):
         output = model(images, image_masks, None)
 
     return {k: v.decode(output[k].detach().cpu()) for k, v in tokenizers.items()}
-
 
 def run_train(opt, logger):
     train_df_list, val_df_list = [], []
@@ -128,11 +124,11 @@ def run_train(opt, logger):
     tokenizers = {'ctc': tokenizer_ctc, 'transformer': tokenizer_transformer}
     params = {'max_new_tokens': 30, 'min_length': 1, 'num_beams': 1, 'num_beam_groups': 1, 'do_sample': False}
     model = CRNN(n_ctc=tokenizer_ctc.get_num_chars(), n_transformer_decoder=tokenizer_transformer.get_num_chars(), transformer_decoding_params=params)
-    
+
     # data parallel for multi-GPU
     model = torch.nn.DataParallel(model)
-    
-    model.to(device)
+
+    model = model.to(device)
 
     scaler = amp.GradScaler()
     criterion_ctc = torch.nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)
@@ -168,7 +164,7 @@ def run_train(opt, logger):
     for epoch in range(start_epoch, opt.epochs):
         logger.info(f"Epoch: {epoch + 1}")
 
-        train_loss = train_loop(train_loader, model, criterion_ctc, criterion_transformer, optimizer)
+        train_loss = train_loop(train_loader, model, criterion_ctc, criterion_transformer, optimizer, epoch, opt.epochs)
         cer_avg, wer_avg, acc_avg = val_loop(val_loader, model, tokenizers, logger)
         scheduler.step()
 
@@ -195,7 +191,6 @@ def run_train(opt, logger):
         torch.cuda.empty_cache()
         gc.collect()
 
-
 def run_eval(opt, logger):
     data_df = pd.read_csv(os.path.join(opt.data_dir, opt.label_files[0]), sep=",", dtype={"text": str})
     charset = get_charset(data_df)
@@ -221,7 +216,6 @@ def run_eval(opt, logger):
     cer_avg, wer_avg, acc_avg = val_loop(val_loader, model, tokenizers, logger)
     logger.info(f"Accuracy: {acc_avg}, CER: {cer_avg}, WER: {wer_avg}")
     gc.collect()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
