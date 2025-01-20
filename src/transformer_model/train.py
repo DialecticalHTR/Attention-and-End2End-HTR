@@ -16,7 +16,7 @@ import pandas as pd
 import torch.nn.functional as F
 from tabulate import tabulate
 from torch.cuda import amp
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 from src.dataset.transformer_dataset import TransformerDataset
 from src.dataset.transforms import transforms
