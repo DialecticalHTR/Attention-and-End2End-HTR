@@ -90,7 +90,7 @@ class PositionalEncoding(nn.Module):
 
 
 class CRNN(nn.Module):
-    """CRNN attention_model."""
+    """CRNN model."""
 
     def __init__(
             self, n_ctc=None, n_transformer_decoder=None, transformer_decoding_params=None
@@ -294,7 +294,7 @@ class CRNN(nn.Module):
         cur_len = decoder_inputs.shape[-1]
 
         while True:
-            # prepare attention_model inputs
+            # prepare model inputs
             tgt = self.transformer_decoder_pos(self.transformer_decoder_embedding(decoder_inputs))
             next_token_logits = self.classifier_transformer(self.transformer_decoder(tgt=tgt, memory=memory))[:, -1, :]
             scores += (next_token_logits,)
@@ -308,7 +308,7 @@ class CRNN(nn.Module):
             # finished sentences should have their next token be a padding token
             next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
-            # update generated ids, attention_model inputs, and length for next step
+            # update generated ids, model inputs, and length for next step
             decoder_inputs = torch.cat([decoder_inputs, next_tokens[:, None]], dim=-1)
             cur_len = cur_len + 1
 
@@ -360,7 +360,7 @@ class CRNN(nn.Module):
             # finished sentences should have their next token be a padding token
             next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
-            # update generated ids, attention_model inputs, and length for next step
+            # update generated ids, model inputs, and length for next step
             decoder_inputs = torch.cat([decoder_inputs, next_tokens[:, None]], dim=-1)
             cur_len = cur_len + 1
 
@@ -649,7 +649,7 @@ class CRNN(nn.Module):
                     raise ValueError(
                         f"A custom {object_type} of type {type(custom)} with values {custom} has been passed to `generate`, "
                         f"but it has already been created with the values {default}. {default} has been created by passing the "
-                        "corresponding arguments to generate or by the attention_model's config default values. "
+                        "corresponding arguments to generate or by the model's config default values. "
                         f"If you just want to change the default values of {object_type} consider passing them as arguments "
                         f"to `generate` instead of using a custom {object_type}."
                     )
@@ -674,7 +674,7 @@ class CRNN(nn.Module):
     ) -> LogitsProcessorList:
         """
         This class returns a [`LogitsProcessorList`] list object that contains all relevant [`LogitsProcessor`]
-        instances used to modify the scores of the language attention_model head.
+        instances used to modify the scores of the language model head.
         """
         processors = LogitsProcessorList()
         # instantiate processors list

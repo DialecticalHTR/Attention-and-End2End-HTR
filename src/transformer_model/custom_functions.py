@@ -74,7 +74,7 @@ class MADGRAD(torch.optim.Optimizer):
     def step(self, closure: Optional[Callable[[], float]] = None) -> Optional[float]:
         """Performs a single optimization step.
         Arguments:
-            closure (callable, optional): A closure that reevaluates the attention_model
+            closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
         loss = None
@@ -258,7 +258,7 @@ class Ranger(Optimizer):
                 if len(state) == 0:  # if first time to run...init dictionary with our desired entries
                     # if self.first_run_check==0:
                     # self.first_run_check=1
-                    # print("Initializing slow buffer...should not see this at load from saved attention_model!")
+                    # print("Initializing slow buffer...should not see this at load from saved model!")
                     state['step'] = 0
                     state['exp_avg'] = torch.zeros_like(p_data_fp32)
                     state['exp_avg_sq'] = torch.zeros_like(p_data_fp32)

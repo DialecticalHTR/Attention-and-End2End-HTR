@@ -18,10 +18,10 @@ def set_seed(seed: int):
 
 
 def save_model(path, model, epoch, train_loss, metric, optimizer, epochs_since_improvement, scheduler, scaler):
-    '''Save PyTorch attention_model.'''
+    '''Save PyTorch model.'''
 
     torch.save({
-        'attention_model': model.state_dict(),
+        'model': model.state_dict(),
         'epoch': epoch,
         'train_loss': train_loss,
         'metric': metric,
@@ -29,7 +29,7 @@ def save_model(path, model, epoch, train_loss, metric, optimizer, epochs_since_i
         'epochs_since_improvement': epochs_since_improvement,
         'scheduler': scheduler.state_dict(),
         'scaler': scaler.state_dict(),
-    }, os.path.join(path, f'model-{epoch}-{metric:.4f}.ckpt'))
+    }, os.path.join(path, f'best_model.ckpt'))
 
 
 class AverageMeter:

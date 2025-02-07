@@ -31,7 +31,7 @@ from src.utils.metrics import cer, wer, string_accuracy, levenshtein_distance
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def val_loop(data_loader, model, tokenizers, logger):
-    logger.info("Validation")
+    logger.info("Test") if "test" in opt.eval_stage else logger.info("Validation")
     final_predictions = {k: {'true': [], 'pred': []} for k in tokenizers.keys()}
 
     for data in tqdm(data_loader):
@@ -111,6 +111,7 @@ def run_train(opt, logger):
         opt.charset += get_charset(data_df)
         train_df_list.append(data_df[data_df.stage == "train"])
         val_df_list.append(data_df[data_df.stage == "val"])
+
     opt.charset = "".join(sorted(list(set(opt.charset))))
 
     logger.info('---------------------------------------- Options ----------------------------------------')
@@ -142,11 +143,11 @@ def run_train(opt, logger):
     start_epoch = 0
 
     if opt.saved_model != '':
-        logger.info(f'Loading pretrained attention_model from {opt.saved_model}')
+        logger.info(f'Loading pretrained model from {opt.saved_model}')
         cp = torch.load(opt.saved_model, map_location=device)
 
         scaler.load_state_dict(cp["scaler"])
-        model.load_state_dict(cp["transformer_model"])
+        model.load_state_dict(cp["model"])
         optimizer.load_state_dict(cp["optimizer"])
         for _ in range(cp["epoch"]):
             scheduler.step()
@@ -184,6 +185,7 @@ def run_train(opt, logger):
 
         for k, train_loss in train_loss.items():
             logger.info(f'Train Loss [{k}]: {train_loss:.4f}')
+            
         logger.info(f'Current CER: {cer_avg:.3f}, current WER: {wer_avg:.3f}, current accuracy: {acc_avg:.3f}')
         logger.info(f'Best CER: {best_cer:.3f}')
         logger.info(f'Learning Rate: {optimizer.param_groups[0]["lr"]}, Elapsed time: {t} min')
@@ -206,8 +208,20 @@ def run_eval(opt, logger):
 
     logger.info("Loading transformer model from checkpoint")
 
-    cp = torch.load(opt.saved_model)
-    model.load_state_dict(cp["transformer_model"])
+    cp = torch.load(opt.saved_model, map_location=device)
+
+    # Преобразуем state_dict, если модель была сохранена в DataParallel
+    state_dict = cp["model"]
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+
+    for k, v in state_dict.items():
+        name = k.replace("module.", "")  # Убираем 'module.', если модель была в DataParallel
+        new_state_dict[name] = v
+
+    # Загружаем исправленный state_dict
+    model.load_state_dict(new_state_dict)
+
     del cp
 
     val_dataset = TransformerDataset([val_df], opt.data_dir, tokenizers)
