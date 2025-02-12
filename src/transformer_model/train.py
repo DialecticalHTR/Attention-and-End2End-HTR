@@ -77,7 +77,12 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         alpha = 0.25
 
         text_lengths = torch.tensor(data['text_len'], dtype=torch.long, device=device)
-        loss_ctc = alpha * criterion_ctc(output['ctc'], data['enc_text_ctc'], output_lenghts, text_lengths)        
+        loss_ctc = alpha * criterion_ctc(output['ctc'], data['enc_text_ctc'], output_lenghts, text_lengths) 
+        print("output['ctc'].shape:", output['ctc'].shape)
+        print("data['enc_text_ctc'].shape:", data['enc_text_ctc'].shape)
+        print("output_lenghts.shape:", output_lenghts.shape)
+        print("text_lengths.shape:", text_lengths.shape)
+       
 
         transformer_expected = enc_text_transformer
         transformer_expected = F.pad(transformer_expected[:, 1:], pad=(0, 1, 0, 0), value=0)  # remove SOS token
