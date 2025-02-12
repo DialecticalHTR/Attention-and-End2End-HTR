@@ -73,7 +73,8 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         model.zero_grad()
         output = model(images, image_masks, enc_text_transformer)
 
-        output_lengths = torch.full(size=(images.size(0),), fill_value=output['ctc'].size(0), dtype=torch.long, device=device)
+        output_lengths = torch.full(size=(images.size(0),), fill_value=output['ctc'].size(1), dtype=torch.long, device=device)
+
         alpha = 0.25
 
         text_lengths = torch.tensor(data['text_len'], dtype=torch.long, device=device)
@@ -82,6 +83,10 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         print("data['enc_text_ctc'].shape:", data['enc_text_ctc'].shape)
         print("output_lengths.shape:", output_lengths.shape)
         print("text_lengths.shape:", text_lengths.shape)
+        print("images.size(0):", images.size(0))
+        print("images.size(1):", images.size(1))
+        print("images.shape:", images.shape)
+        
         loss_ctc = alpha * criterion_ctc(output['ctc'], enc_text_ctc, output_lengths, text_lengths) 
        
 
