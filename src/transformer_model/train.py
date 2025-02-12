@@ -65,7 +65,7 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         losses[name] = AverageMeter()
     model.train()
 
-    for batch_idx, data in enumerate(tqdm(data_loader, desc=f"Training Epoch {epoch + 1}/{total_epochs}")):
+    for batch_idx, data in tqdm(data_loader):
         images = data['image'].to(device)
         image_masks = data['image_mask'].to(device)
         enc_text_transformer = data['enc_text_transformer'].to(device)
@@ -73,15 +73,15 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         model.zero_grad()
         output = model(images, image_masks, enc_text_transformer)
 
-        output_lenghts = torch.full(size=(output['ctc'].size(1),), fill_value=output['ctc'].size(0), dtype=torch.long)
+        output_lenghts = torch.full(size=(images.size(0),), fill_value=output['ctc'].size(0), dtype=torch.long, device=device)
         alpha = 0.25
 
         text_lengths = torch.tensor(data['text_len'], dtype=torch.long, device=device)
-        loss_ctc = alpha * criterion_ctc(output['ctc'], data['enc_text_ctc'], output_lenghts, text_lengths) 
         print("output['ctc'].shape:", output['ctc'].shape)
         print("data['enc_text_ctc'].shape:", data['enc_text_ctc'].shape)
         print("output_lenghts.shape:", output_lenghts.shape)
         print("text_lengths.shape:", text_lengths.shape)
+        loss_ctc = alpha * criterion_ctc(output['ctc'], data['enc_text_ctc'], output_lenghts, text_lengths) 
        
 
         transformer_expected = enc_text_transformer
@@ -136,7 +136,7 @@ def run_train(opt, logger):
     # data parallel for multi-GPU
     model = torch.nn.DataParallel(model)
 
-    model = model.to(device)
+    model.to(device)
 
     scaler = amp.GradScaler()
     criterion_ctc = torch.nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)
