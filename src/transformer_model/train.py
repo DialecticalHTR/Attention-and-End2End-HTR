@@ -65,7 +65,7 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         losses[name] = AverageMeter()
     model.train()
 
-    for batch_idx, data in tqdm(data_loader):
+    for data in tqdm(data_loader):
         images = data['image'].to(device)
         image_masks = data['image_mask'].to(device)
         enc_text_transformer = data['enc_text_transformer'].to(device)
@@ -73,15 +73,16 @@ def train_loop(data_loader, model, criterion_ctc, criterion_transformer, optimiz
         model.zero_grad()
         output = model(images, image_masks, enc_text_transformer)
 
-        output_lenghts = torch.full(size=(images.size(0),), fill_value=output['ctc'].size(0), dtype=torch.long, device=device)
+        output_lengths = torch.full(size=(images.size(0),), fill_value=output['ctc'].size(0), dtype=torch.long, device=device)
         alpha = 0.25
 
         text_lengths = torch.tensor(data['text_len'], dtype=torch.long, device=device)
+        enc_text_ctc = data['enc_text_ctc'].to(device)
         print("output['ctc'].shape:", output['ctc'].shape)
         print("data['enc_text_ctc'].shape:", data['enc_text_ctc'].shape)
-        print("output_lenghts.shape:", output_lenghts.shape)
+        print("output_lengths.shape:", output_lengths.shape)
         print("text_lengths.shape:", text_lengths.shape)
-        loss_ctc = alpha * criterion_ctc(output['ctc'], data['enc_text_ctc'], output_lenghts, text_lengths) 
+        loss_ctc = alpha * criterion_ctc(output['ctc'], enc_text_ctc, output_lengths, text_lengths) 
        
 
         transformer_expected = enc_text_transformer
